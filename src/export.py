@@ -378,7 +378,7 @@ def _atomic_save(path, writer):
     os.close(descriptor)
     try:
         writer(temporary)
-        with open(temporary, "rb") as stream:
+        with open(temporary, "r+b") as stream:
             os.fsync(stream.fileno())
         os.replace(temporary, destination)
     finally:
