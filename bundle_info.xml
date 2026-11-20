@@ -1,0 +1,28 @@
+<BundleInfo name="illustruct" version="0.1.0"
+    package="chimerax.illustruct" minSessionVersion="1" maxSessionVersion="1">
+  <Author>Leighton Payne</Author>
+  <Email>leightonpayne98@gmail.com</Email>
+  <URL>https://leightonpayne.github.io/illustruct/</URL>
+  <License>MIT</License>
+  <Synopsis>Publication molecular illustrations from the current ChimeraX view</Synopsis>
+  <Description>Native molecular illustration panel with smooth silhouettes, flat DNA/RNA backbones, ChimeraX colors and component visibility, and print-sized SVG, PDF, and PNG export.</Description>
+  <Categories><Category name="Depiction"/></Categories>
+  <Dependencies>
+    <Dependency name="ChimeraX-Core" version="~=1.10"/>
+    <Dependency name="ChimeraX-UI" version="~=1.0"/>
+    <Dependency name="ChimeraX-Atomic" version="~=1.0"/>
+    <Dependency name="ChimeraX-Surface" version="~=1.0"/>
+    <Dependency name="numpy" version="&gt;=1.24"/>
+    <Dependency name="scipy" version="&gt;=1.10"/>
+  </Dependencies>
+  <DataFiles>
+    <DataFile>docs/user/commands/illustruct.html</DataFile>
+    <DataFile>docs/user/tools/illustruct.html</DataFile>
+  </DataFiles>
+  <Classifiers>
+    <PythonClassifier>Development Status :: 4 - Beta</PythonClassifier>
+    <PythonClassifier>Programming Language :: Python :: 3</PythonClassifier>
+    <ChimeraXClassifier>Tool :: Illustruct :: Depiction :: Create editable molecular illustrations</ChimeraXClassifier>
+    <ChimeraXClassifier>Command :: illustruct :: Depiction :: Preview and export molecular illustrations</ChimeraXClassifier>
+  </Classifiers>
+</BundleInfo>

@@ -1,0 +1,71 @@
+[project]
+site_name = "Illustruct"
+site_url = "https://leightonpayne.github.io/illustruct/"
+site_description = "Create editable molecular illustrations directly in ChimeraX."
+site_author = "Leighton Payne"
+docs_dir = "docs"
+site_dir = "site"
+repo_name = "leightonpayne/illustruct"
+repo_url = "https://github.com/leightonpayne/illustruct"
+edit_uri = "edit/main/docs/"
+copyright = "&copy; 2026 Leighton Payne"
+nav = [
+  { "Get started" = "index.md" },
+  { "User guide" = "usage.md" },
+  { "Commands" = "commands.md" },
+  { "Development" = "development.md" },
+  { "About" = "about.md" },
+]
+
+[project.theme]
+name = "flexoki"
+language = "en"
+favicon = "assets/favicon.svg"
+features = [
+  "content.code.copy",
+  "content.code.annotate",
+  "navigation.top",
+  "navigation.footer",
+  "toc.follow",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to light mode"
+
+[project.theme.icon]
+logo = "lucide/atom"
+repo = "fontawesome/brands/github"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/leightonpayne/illustruct"
+name = "Illustruct on GitHub"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/bluesky"
+link = "https://bsky.app/profile/leightonpayne.bsky.social"
+name = "Leighton Payne on Bluesky"
+
+[project.markdown_extensions]
+admonition = {}
+tables = {}
+
+[project.markdown_extensions.toc]
+permalink = true
+
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+
+[project.markdown_extensions.pymdownx.superfences]

@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=78.1", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "illustruct"
+version = "0.1.0"
+description = "Publication molecular illustrations from the current ChimeraX view"
+readme = { text = "Native molecular illustration panel with smooth silhouettes, flat DNA/RNA backbones, ChimeraX colors and component visibility, and print-sized SVG, PDF, and PNG export.", content-type = "text/plain" }
+requires-python = ">=3.11"
+authors = [{ name = "Leighton Payne", email = "leightonpayne98@gmail.com" }]
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = [
+    "ChimeraX-Core~=1.10",
+    "ChimeraX-UI~=1.0",
+    "ChimeraX-Atomic~=1.0",
+    "ChimeraX-Surface~=1.0",
+    "numpy>=1.24",
+    "scipy>=1.10",
+]
+dynamic = ["classifiers"]
+
+[project.urls]
+Homepage = "https://leightonpayne.github.io/illustruct/"
+Repository = "https://github.com/leightonpayne/illustruct"
+Issues = "https://github.com/leightonpayne/illustruct/issues"
+
+[dependency-groups]
+dev = [
+    "commitizen>=4.19.3,<5",
+]
+docs = [
+    "flexoki-zensical>=0.1.1,<0.2",
+    "zensical>=0.0.71,<0.1",
+]
+
+[tool.uv]
+# ChimeraX loads this bundle; the development environment is not its host.
+package = false
+default-groups = ["dev", "docs"]
+exclude-dependencies = ["ChimeraX-Core", "ChimeraX-UI", "ChimeraX-Atomic", "ChimeraX-Surface"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "uv"
+version_scheme = "pep440"
+tag_format = "v$version"
+prerelease_offset = 1
+version_files = [
+    'bundle_info.xml:^<BundleInfo\b',
+    'src/version.py:^VERSION\s*=',
+    'README.md:illustruct-.*-py3-none-any\.whl',
+    'docs/index.md:illustruct-.*-py3-none-any\.whl',
+    'src/docs/user/tools/illustruct.html:illustruct-.*-py3-none-any\.whl',
+]

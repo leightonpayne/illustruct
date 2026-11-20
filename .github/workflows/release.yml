@@ -1,0 +1,106 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check tag against project version
+        id: version
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          number = r"(?:0|[1-9][0-9]*)"
+          match = re.fullmatch(rf"{number}\.{number}\.{number}(?:(a|b|rc){number})?", version)
+          if not match or os.environ["GITHUB_REF_NAME"] != f"v{version}":
+              raise SystemExit("Release tag must match the canonical project version (vX.Y.Z, optionally aN/bN/rcN)")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"version={version}\nprerelease={str(match[1] is not None).lower()}\n")
+          PY
+
+  checks:
+    name: Validate release contents
+    needs: version
+    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
+
+  draft:
+    name: Stage validated packages
+    needs: [version, checks]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download this run's validated packages
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: illustruct-distributions
+          path: dist
+      - name: Verify downloaded package contents
+        run: python scripts/check_dist.py dist
+      - name: Create draft release with validated packages
+        working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          RELEASE_PRERELEASE: ${{ needs.version.outputs.prerelease }}
+        run: |
+          existing_release=$(gh api --paginate "repos/$GH_REPO/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .html_url")
+          if [[ -n "$existing_release" ]]; then
+            printf 'A release already exists for %s. Review it before retrying.\n%s\n' \
+              "$GITHUB_REF_NAME" "$existing_release" >&2
+            exit 1
+          fi
+
+          sha256sum ./*.whl ./*.tar.gz > SHA256SUMS
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          ## Install in ChimeraX
+
+          Tested on Apple silicon macOS with ChimeraX 1.10.
+
+          Download the wheel below and run this command in ChimeraX.
+
+          ```text
+          toolshed install /path/to/downloaded.whl
+          ```
+
+          Restart ChimeraX if requested, then run `illustruct`.
+          `SHA256SUMS` contains checksums for the wheel and source archive.
+
+          NOTES
+          prerelease_args=()
+          if [[ "$RELEASE_PRERELEASE" == "true" ]]; then
+            prerelease_args=(--prerelease --latest=false)
+          fi
+          gh release create "$GITHUB_REF_NAME" ./*.whl ./*.tar.gz SHA256SUMS \
+            --repo "$GH_REPO" --verify-tag --draft --title "Illustruct $RELEASE_VERSION" \
+            --generate-notes --notes-file "$RUNNER_TEMP/release-notes.md" \
+            "${prerelease_args[@]}"

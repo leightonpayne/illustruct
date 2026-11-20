@@ -1,0 +1,14 @@
+.DS_Store
+__pycache__/
+*.pyc
+build/
+*.egg-info/
+qa/
+.venv/
+node_modules/
+.uv-cache/
+site/
+.cache/
+dist/
+/outputs/
+/illustration.svg
