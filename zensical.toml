@@ -56,6 +56,9 @@ icon = "fontawesome/brands/bluesky"
 link = "https://bsky.app/profile/leightonpayne.bsky.social"
 name = "Leighton Payne on Bluesky"
 
+[project.plugins.social]
+enabled = true
+
 [project.markdown_extensions]
 admonition = {}
 tables = {}
