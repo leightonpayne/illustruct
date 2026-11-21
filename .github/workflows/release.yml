@@ -2,53 +2,76 @@ name: Release
 
 on:
   push:
+    branches: [main]
     tags: ["v*"]
+    paths: [pyproject.toml]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   version:
-    name: Validate release tag
+    name: Select and validate release version
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'push' && github.ref_type == 'tag')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
       prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - name: Check tag against project version
+      - name: Check project version and release trigger
         id: version
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           python - <<'PY'
           import os
           import re
+          import subprocess
           import tomllib
           from pathlib import Path
 
-          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          version = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+          ref_type = os.environ["GITHUB_REF_TYPE"]
+          if os.environ["GITHUB_EVENT_NAME"] == "push" and ref_type == "branch":
+              before = os.environ["PUSH_BEFORE"]
+              if not before or before == "0" * 40:
+                  print("Run Release manually to draft the first version.")
+                  raise SystemExit(0)
+              previous = subprocess.check_output(["git", "show", f"{before}:pyproject.toml"], encoding="utf-8")
+              if tomllib.loads(previous)["project"]["version"] == version:
+                  print("The project version is unchanged.")
+                  raise SystemExit(0)
+
           number = r"(?:0|[1-9][0-9]*)"
           match = re.fullmatch(rf"{number}\.{number}\.{number}(?:(a|b|rc){number})?", version)
-          if not match or os.environ["GITHUB_REF_NAME"] != f"v{version}":
-              raise SystemExit("Release tag must match the canonical project version (vX.Y.Z, optionally aN/bN/rcN)")
+          if not match:
+              raise SystemExit("Use a canonical X.Y.Z version with an optional aN, bN, or rcN suffix.")
+          tag = f"v{version}"
+          if ref_type == "tag" and os.environ["GITHUB_REF_NAME"] != tag:
+              raise SystemExit(f"Release tag must match the project version ({tag}).")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"version={version}\nprerelease={str(match[1] is not None).lower()}\n")
+              output.write(f"version={version}\ntag={tag}\nprerelease={str(match[1] is not None).lower()}\n")
           PY
 
   checks:
     name: Validate release contents
     needs: version
+    if: needs.version.outputs.tag != ''
     uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
 
   draft:
     name: Stage validated packages
     needs: [version, checks]
+    concurrency:
+      group: release-draft-${{ needs.version.outputs.tag }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -56,6 +79,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Download this run's validated packages
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
@@ -69,15 +93,30 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
           RELEASE_PRERELEASE: ${{ needs.version.outputs.prerelease }}
         run: |
-          existing_release=$(gh api --paginate "repos/$GH_REPO/releases?per_page=100" \
-            --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .html_url")
-          if [[ -n "$existing_release" ]]; then
-            printf 'A release already exists for %s. Review it before retrying.\n%s\n' \
-              "$GITHUB_REF_NAME" "$existing_release" >&2
+          tested_commit=$(git rev-parse HEAD)
+          tag_ref="refs/tags/$RELEASE_TAG"
+          tag_args=(--target "$tested_commit")
+          if git show-ref --verify --quiet "$tag_ref"; then
+            if [[ "$(git rev-parse --verify "$tag_ref^{commit}")" != "$tested_commit" ]]; then
+              printf '%s points to a different commit. Expected %s.\n' "$RELEASE_TAG" "$tested_commit" >&2
+              exit 1
+            fi
+            tag_args+=(--verify-tag)
+          elif [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            printf '%s no longer exists.\n' "$RELEASE_TAG" >&2
             exit 1
+          fi
+
+          existing_release=$(gh api --paginate "repos/$GH_REPO/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | .html_url")
+          if [[ -n "$existing_release" ]]; then
+            printf 'A release already exists for %s. Review its commit and assets before publishing.\n%s\n' \
+              "$RELEASE_TAG" "$existing_release"
+            exit 0
           fi
 
           sha256sum ./*.whl ./*.tar.gz > SHA256SUMS
@@ -96,11 +135,12 @@ jobs:
           `SHA256SUMS` contains checksums for the wheel and source archive.
 
           NOTES
+          printf 'Built from commit `%s`.\n\n' "$tested_commit" >> "$RUNNER_TEMP/release-notes.md"
           prerelease_args=()
           if [[ "$RELEASE_PRERELEASE" == "true" ]]; then
             prerelease_args=(--prerelease --latest=false)
           fi
-          gh release create "$GITHUB_REF_NAME" ./*.whl ./*.tar.gz SHA256SUMS \
-            --repo "$GH_REPO" --verify-tag --draft --title "Illustruct $RELEASE_VERSION" \
+          gh release create "$RELEASE_TAG" ./*.whl ./*.tar.gz SHA256SUMS \
+            --repo "$GH_REPO" --draft --title "Illustruct $RELEASE_VERSION" \
             --generate-notes --notes-file "$RUNNER_TEMP/release-notes.md" \
-            "${prerelease_args[@]}"
+            "${tag_args[@]}" "${prerelease_args[@]}"

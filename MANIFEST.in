@@ -2,7 +2,7 @@ include bundle_info.xml
 include LICENSE
 include .python-version
 include .prettierrc
-include package.json aube-lock.yaml
+include package.json pnpm-lock.yaml
 recursive-include .vscode *.json
 include uv.lock zensical.toml
 recursive-include .github *.yml

@@ -110,6 +110,13 @@ install the recommended
 The workspace settings format Markdown on save, using `.prettierrc` to reflow
 prose at 80 columns.
 
+## Dependency updates
+
+Dependabot opens weekly pull requests for GitHub Actions, Python lockfile
+updates, and Prettier. Aube uses `pnpm-lock.yaml` for the formatter. Change
+Python dependency requirements in `pyproject.toml` and `bundle_info.xml`
+together.
+
 ## Release
 
 Run release commands from a Git checkout after `uv sync --locked`.
@@ -134,8 +141,7 @@ files and the installation examples in the README, docs, and offline help; they
 do not commit, tag, or push. `--yes` accepts the initial missing-tag
 confirmation without creating a tag.
 
-For the first **0.1.0** release, keep the existing version and skip the bump. If
-no files changed, use the existing reviewed commit for the tag.
+For the first **0.1.0** release, keep the existing version and skip the bump.
 
 Review the diff and run the portable and native checks above, then build both
 distribution files and verify them:
@@ -149,35 +155,34 @@ Use a directory containing only the candidate wheel and source archive. The
 checker compares their contents with the checkout and runs portable tests from
 the extracted source archive.
 
-Commit any reviewed changes before tagging so the tag contains the source you
-validated. Replace `X.Y.Z` with the project version, including any prerelease
-suffix. To display it, run `uv run --locked cz version --project`.
+Push the reviewed version bump to `main`. The Release workflow runs the portable
+tests, package checks, and docs build for that commit, then creates a draft with
+the wheel, source archive, `SHA256SUMS`, and generated release notes. It detects
+changes to `[project].version` in `pyproject.toml`. Versions with `a`, `b`, or
+`rc` suffixes are marked as prereleases.
+
+For the first release or to retry drafting the current version, run **Release**
+from the Actions tab on `main`, or run `gh workflow run release.yml --ref main`.
+The draft records the exact tested commit in its notes. GitHub creates the
+version tag when you publish the draft. Pushing a matching `vX.Y.Z` tag also
+starts the workflow. Existing releases and their assets are preserved.
+
+Open the draft on
+[GitHub Releases](https://github.com/leightonpayne/illustruct/releases). Check
+out the commit in its notes and download the draft assets. Replace
+`RELEASE_COMMIT` and `vX.Y.Z` with the commit SHA and version tag shown in the
+draft. Verify the hashes before installing the wheel.
 
 ```sh
-git tag -a vX.Y.Z -m "Release vX.Y.Z"
-git push origin HEAD
-git push origin vX.Y.Z
-```
-
-Pushing the tag starts `.github/workflows/release.yml`. It checks the tag
-against the project version and runs the portable tests, package checks, and
-documentation build from the tagged commit. When those checks pass, the workflow
-creates a draft with that run’s wheel, source archive, `SHA256SUMS`, generated
-release notes, and install instructions. Versions with `a`, `b`, or `rc`
-suffixes are marked as prereleases.
-[GitHub Releases](https://github.com/leightonpayne/illustruct/releases)
-
-From the tagged checkout, use the GitHub CLI to download all three draft assets
-to a temporary directory. Verify their hashes before installing the wheel.
-
-```sh
+git fetch --tags origin
+git switch --detach RELEASE_COMMIT
 release_dir=$(mktemp -d)
 gh release download vX.Y.Z --dir "$release_dir"
 (cd "$release_dir" && shasum -a 256 -c SHA256SUMS)
 ```
 
 In a clean ChimeraX environment, install the downloaded wheel and run both
-[installed GUI checks](#tests) from the tagged checkout. Open the panel’s Help
+[installed GUI checks](#tests) from the draft’s checkout. Open the panel’s Help
 and run `help illustruct` to verify the bundled help. Reinstall the same wheel
 with `toolshed install /path/to/downloaded.whl reinstall true`, restart
 ChimeraX, and confirm the panel still opens. Run
@@ -186,11 +191,11 @@ gone. For releases with a published predecessor, also test upgrading from that
 version. Native validation currently covers **ChimeraX 1.10 on Apple silicon
 macOS**.
 
-Retain the test reports with the wheel’s SHA-256 digest, the tagged commit
-(`git rev-parse 'vX.Y.Z^{commit}'`), the ChimeraX version, and the operating
-system. Once native validation passes, manually publish the draft with those
-same assets. If assets change, repeat verification and native validation on the
-replacement wheel. Review any existing draft before retrying a staging run.
+Retain the test reports with the wheel’s SHA-256 digest, the tested commit
+(`git rev-parse HEAD`), the ChimeraX version, and the operating system. Once
+native validation passes, manually publish the draft with the same commit and
+assets. If assets change, repeat verification and native validation on the
+replacement wheel.
 
 A
 [Toolshed submission](https://chimerax.readthedocs.io/en/latest/writing_bundles.html#distributing-bundles)

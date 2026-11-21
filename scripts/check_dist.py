@@ -81,7 +81,7 @@ def check(directory, test_sdist=False):
         require(len(roots) == 1 and roots[0].is_dir(), "Source archive must have one root directory")
         extracted = roots[0]
         required = ["LICENSE", "README.md", "MANIFEST.in", "pyproject.toml", "bundle_info.xml",
-                    "setup.py", "uv.lock", "zensical.toml", "package.json", "aube-lock.yaml"]
+                    "setup.py", "uv.lock", "zensical.toml", "package.json", "pnpm-lock.yaml"]
         for directory_name in ("src", "scripts", "tests", "docs", ".github"):
             required.extend(p.relative_to(ROOT).as_posix() for p in (ROOT / directory_name).rglob("*")
                             if source_file(p))
